@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "650085824154",
+    "project_id": "fir-echange",
+    "storage_bucket": "fir-echange.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:650085824154:android:1c59837c287d37fdfc5123",
+        "android_client_info": {
+          "package_name": "com.itbs.demo_echange"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAR7dXXPfm4swJQUzcDURTbXzDVc3zf_Qg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
