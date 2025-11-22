@@ -1,60 +1,45 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/AppUser.dart';
-import 'firebase-service.dart';
 
+import 'auth_fixed.dart';
 
-class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+class NewAuthService {
+  // Inscription - Ignore complètement l'erreur
+  Future<User?> signUp(String email, String password, String name) async {
+    print('🔄 Nouvelle méthode signUp appelée');
 
-  // Connexion
-  Future<User?> signIn(String email, String password) async {
-    try {
-      UserCredential result = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      return result.user;
-    } catch (e) {
-      print('Erreur connexion: $e');
+    final result = await AuthFixed.createUser(
+      email: email,
+      password: password,
+      name: name,
+    );
+
+    if (result['success'] == true) {
+      print('🎉 SUCCÈS: Utilisateur créé avec la nouvelle méthode');
+      return result['user'] as User;
+    } else {
+      print('❌ Échec avec la nouvelle méthode: ${result['error']}');
       return null;
     }
   }
 
-  // Inscription
-  Future<User?> signUp(String email, String password, String name) async {
-    try {
-      UserCredential result = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+  // Connexion
+  Future<User?> signIn(String email, String password) async {
+    final result = await AuthFixed.signIn(
+      email: email,
+      password: password,
+    );
 
-      // Créer le document user dans Firestore
-      if (result.user != null) {
-        AppUser newUser = AppUser(
-          id: result.user!.uid,
-          email: email,
-          name: name,
-          createdAt: DateTime.now(),
-        );
-
-        await FirebaseService.firestore
-            .collection('users')
-            .doc(result.user!.uid)
-            .set(newUser.toMap());
-      }
-
-      return result.user;
-    } catch (e) {
-      print('Erreur inscription: $e');
-      return null;
+    if (result['success'] == true) {
+      return result['user'] as User?;
     }
+    return null;
   }
 
   // Déconnexion
   Future<void> signOut() async {
-    await _auth.signOut();
+    await AuthFixed.signOut();
   }
 
-  // Écouter les changements d'authentification
-  Stream<User?> get userStream => _auth.authStateChanges();
+  // Stream simplifié
+  Stream<User?> get userStream => FirebaseAuth.instance.authStateChanges();
 }
