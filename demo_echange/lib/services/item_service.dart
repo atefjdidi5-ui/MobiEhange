@@ -12,7 +12,8 @@ class ItemService {
   Future<String> createItem(Item item) async {
     try {
       final docRef = _firestore.collection('items').doc();
-      final newItem = item.copyWith();
+      // Create the item with the generated document ID
+      final newItem = item.copyWith(id: docRef.id);
       await docRef.set(newItem.toMap());
       return docRef.id;
     } catch (e) {
@@ -58,9 +59,11 @@ class ItemService {
     }
   }
 
-  // Update item
   Future<void> updateItem(Item item) async {
     try {
+      if (item.id.isEmpty) {
+        throw Exception('Cannot update item: Item ID is empty');
+      }
       await _firestore
           .collection('items')
           .doc(item.id)
@@ -70,6 +73,8 @@ class ItemService {
       rethrow;
     }
   }
+
+
 
   // Delete item
   Future<void> deleteItem(String itemId) async {

@@ -29,7 +29,10 @@ class Item {
     this.totalReviews = 0,
   });
 
-  // Convert to Map for Firestore
+  @override
+  String toString() {
+    return 'Item{id: $id, ownerId: $ownerId, title: $title, description: $description, imageUrls: $imageUrls, dailyPrice: $dailyPrice, category: $category, location: $location, isAvailable: $isAvailable, createdAt: $createdAt, updatedAt: $updatedAt, rating: $rating, totalReviews: $totalReviews}';
+  } // Convert to Map for Firestore
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -51,7 +54,7 @@ class Item {
   // Create Item from Map
   static Item fromMap(Map<String, dynamic> map) {
     return Item(
-      id: map['id'],
+      id: map['id'] ?? '', // Ensure ID is never null
       ownerId: map['ownerId'],
       title: map['title'],
       description: map['description'],
@@ -67,8 +70,10 @@ class Item {
     );
   }
 
-  // Copy with method for updates
+  // Copy with method for updates - IMPROVED VERSION
   Item copyWith({
+    String? id,
+    String? ownerId,
     String? title,
     String? description,
     List<String>? imageUrls,
@@ -76,10 +81,14 @@ class Item {
     String? category,
     String? location,
     bool? isAvailable,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    double? rating,
+    int? totalReviews,
   }) {
     return Item(
-      id: id,
-      ownerId: ownerId,
+      id: id ?? this.id,
+      ownerId: ownerId ?? this.ownerId,
       title: title ?? this.title,
       description: description ?? this.description,
       imageUrls: imageUrls ?? this.imageUrls,
@@ -87,10 +96,10 @@ class Item {
       category: category ?? this.category,
       location: location ?? this.location,
       isAvailable: isAvailable ?? this.isAvailable,
-      createdAt: createdAt,
-      updatedAt: DateTime.now(),
-      rating: rating,
-      totalReviews: totalReviews,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? DateTime.now(), // Always update this timestamp
+      rating: rating ?? this.rating,
+      totalReviews: totalReviews ?? this.totalReviews,
     );
   }
 }

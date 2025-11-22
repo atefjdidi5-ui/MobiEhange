@@ -17,6 +17,8 @@ class ItemProvider with ChangeNotifier {
   void loadItems() {
     _itemService.getItems().listen((items) {
       _items = items;
+      print(items);
+
       notifyListeners();
     });
   }
