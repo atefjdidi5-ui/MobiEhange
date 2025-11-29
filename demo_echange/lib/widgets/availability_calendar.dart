@@ -1,9 +1,9 @@
 // widgets/availability_calendar.dart
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/Reservation.dart';
-import '../providers/reservation_provider.dart';
+import '../services/firebase-service.dart';
 
 class AvailabilityCalendar extends StatefulWidget {
   final String itemId;
@@ -18,6 +18,40 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
   CalendarFormat _calendarFormat = CalendarFormat.month;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
+  List<Reservation> _reservations = [];
+  bool _isLoading = true;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadItemReservations();
+  }
+
+  Future<void> _loadItemReservations() async {
+    try {
+      final FirebaseFirestore _firestore = FirebaseService.firestore;
+
+      final querySnapshot = await _firestore
+          .collection('reservations')
+          .where('itemId', isEqualTo: widget.itemId)
+          .where('status', whereIn: ['pending', 'accepted'])
+          .get();
+
+      setState(() {
+        _reservations = querySnapshot.docs
+            .map((doc) => Reservation.fromMap(doc.data()))
+            .toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading item reservations: $e');
+      setState(() {
+        _hasError = true;
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +69,14 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
                 fontWeight: FontWeight.bold,
               ),
             ),
+            SizedBox(height: 8),
+            Text(
+              'Dates rouges = Déjà réservé',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
             SizedBox(height: 16),
             _buildCalendarContent(),
             SizedBox(height: 16),
@@ -46,30 +88,18 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
   }
 
   Widget _buildCalendarContent() {
-    final reservationProvider = Provider.of<ReservationProvider>(context);
-
-    // Check if we have any reservation data
-    final hasReservationData = reservationProvider.reservations.isNotEmpty ||
-        reservationProvider.receivedReservations.isNotEmpty;
-
-    if (!hasReservationData) {
+    if (_isLoading) {
       return Container(
         height: 300,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.calendar_today, size: 50, color: Colors.grey),
+              CircularProgressIndicator(),
               SizedBox(height: 16),
               Text(
-                'Aucune donnée de réservation',
+                'Chargement des disponibilités...',
                 style: TextStyle(color: Colors.grey),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'Le calendrier s\'affichera lorsque des réservations seront créées',
-                style: TextStyle(color: Colors.grey, fontSize: 12),
-                textAlign: TextAlign.center,
               ),
             ],
           ),
@@ -77,46 +107,7 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
       );
     }
 
-    try {
-      final reservations = _getItemReservations(reservationProvider);
-      final bookedDates = _getBookedDates(reservations);
-
-      return TableCalendar(
-        firstDay: DateTime.now(),
-        lastDay: DateTime.now().add(Duration(days: 365)),
-        focusedDay: _focusedDay,
-        calendarFormat: _calendarFormat,
-        selectedDayPredicate: (day) {
-          return isSameDay(_selectedDay, day);
-        },
-        onDaySelected: (selectedDay, focusedDay) {
-          setState(() {
-            _selectedDay = selectedDay;
-            _focusedDay = focusedDay;
-          });
-        },
-        onFormatChanged: (format) {
-          setState(() {
-            _calendarFormat = format;
-          });
-        },
-        onPageChanged: (focusedDay) {
-          _focusedDay = focusedDay;
-        },
-        calendarBuilders: CalendarBuilders(
-          defaultBuilder: (context, day, focusedDay) {
-            return _buildDateCell(day, bookedDates);
-          },
-          todayBuilder: (context, day, focusedDay) {
-            return _buildTodayCell(day, bookedDates);
-          },
-          selectedBuilder: (context, day, focusedDay) {
-            return _buildSelectedCell(day, bookedDates);
-          },
-        ),
-      );
-    } catch (e) {
-      print('Error building calendar: $e');
+    if (_hasError) {
       return Container(
         height: 300,
         child: Center(
@@ -126,28 +117,64 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
               Icon(Icons.error_outline, size: 50, color: Colors.orange),
               SizedBox(height: 16),
               Text(
-                'Erreur d\'affichage du calendrier',
+                'Erreur de chargement',
                 style: TextStyle(color: Colors.orange),
+              ),
+              SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: _loadItemReservations,
+                child: Text('Réessayer'),
               ),
             ],
           ),
         ),
       );
     }
-  }
 
-  List<Reservation> _getItemReservations(ReservationProvider provider) {
-    try {
-      // Get all reservations for this item
-      final allReservations = [...provider.reservations, ...provider.receivedReservations];
-      return allReservations.where((reservation) =>
-      reservation.itemId == widget.itemId &&
-          (reservation.status == 'pending' || reservation.status == 'accepted')
-      ).toList();
-    } catch (e) {
-      print('Error getting item reservations: $e');
-      return [];
-    }
+    final bookedDates = _getBookedDates(_reservations);
+
+    return TableCalendar(
+      firstDay: DateTime.now(),
+      lastDay: DateTime.now().add(Duration(days: 365)),
+      focusedDay: _focusedDay,
+      calendarFormat: _calendarFormat,
+      selectedDayPredicate: (day) {
+        return isSameDay(_selectedDay, day);
+      },
+      onDaySelected: (selectedDay, focusedDay) {
+        setState(() {
+          _selectedDay = selectedDay;
+          _focusedDay = focusedDay;
+        });
+      },
+      onFormatChanged: (format) {
+        setState(() {
+          _calendarFormat = format;
+        });
+      },
+      onPageChanged: (focusedDay) {
+        _focusedDay = focusedDay;
+      },
+      availableCalendarFormats: const {
+        CalendarFormat.month: 'Mois',
+        CalendarFormat.twoWeeks: '2 semaines',
+        CalendarFormat.week: 'Semaine',
+      },
+      calendarBuilders: CalendarBuilders(
+        defaultBuilder: (context, day, focusedDay) {
+          return _buildDateCell(day, bookedDates);
+        },
+        todayBuilder: (context, day, focusedDay) {
+          return _buildTodayCell(day, bookedDates);
+        },
+        selectedBuilder: (context, day, focusedDay) {
+          return _buildSelectedCell(day, bookedDates);
+        },
+        outsideBuilder: (context, day, focusedDay) {
+          return _buildOutsideCell(day, bookedDates);
+        },
+      ),
+    );
   }
 
   Set<DateTime> _getBookedDates(List<Reservation> reservations) {
@@ -155,10 +182,14 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
 
     for (final reservation in reservations) {
       try {
-        final days = reservation.endDate.difference(reservation.startDate).inDays;
-        for (int i = 0; i <= days; i++) {
-          final date = reservation.startDate.add(Duration(days: i));
-          bookedDates.add(DateTime(date.year, date.month, date.day));
+        final start = DateTime(reservation.startDate.year, reservation.startDate.month, reservation.startDate.day);
+        final end = DateTime(reservation.endDate.year, reservation.endDate.month, reservation.endDate.day);
+
+        // Add all dates between start and end (inclusive)
+        DateTime current = start;
+        while (current.isBefore(end) || current.isAtSameMomentAs(end)) {
+          bookedDates.add(DateTime(current.year, current.month, current.day));
+          current = current.add(Duration(days: 1));
         }
       } catch (e) {
         print('Error processing reservation dates: $e');
@@ -171,26 +202,43 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
   Widget _buildDateCell(DateTime day, Set<DateTime> bookedDates) {
     final isBooked = bookedDates.contains(DateTime(day.year, day.month, day.day));
     final isPast = day.isBefore(DateTime.now().subtract(Duration(days: 1)));
+    final isToday = isSameDay(day, DateTime.now());
+
+    if (isPast && !isToday) {
+      return Container(
+        margin: EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          color: Colors.grey.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Center(
+          child: Text(
+            '${day.day}',
+            style: TextStyle(
+              color: Colors.grey,
+            ),
+          ),
+        ),
+      );
+    }
 
     return Container(
       margin: EdgeInsets.all(2),
       decoration: BoxDecoration(
         color: isBooked
             ? Colors.red.withOpacity(0.3)
-            : isPast
-            ? Colors.grey.withOpacity(0.1)
             : Colors.green.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isBooked ? Colors.red : Colors.transparent,
+          width: isBooked ? 2 : 1,
         ),
       ),
       child: Center(
         child: Text(
           '${day.day}',
           style: TextStyle(
-            color: isBooked ? Colors.red :
-            isPast ? Colors.grey : Colors.black,
+            color: isBooked ? Colors.red : Colors.black,
             fontWeight: isBooked ? FontWeight.bold : FontWeight.normal,
           ),
         ),
@@ -206,6 +254,10 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
       decoration: BoxDecoration(
         color: isBooked ? Colors.red : Colors.blue,
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isBooked ? Colors.red : Colors.blue,
+          width: 2,
+        ),
       ),
       child: Center(
         child: Text(
@@ -244,29 +296,69 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
     );
   }
 
+  Widget _buildOutsideCell(DateTime day, Set<DateTime> bookedDates) {
+    final isPast = day.isBefore(DateTime.now().subtract(Duration(days: 1)));
+
+    return Container(
+      margin: EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: Colors.grey.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Center(
+        child: Text(
+          '${day.day}',
+          style: TextStyle(
+            color: Colors.grey,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildLegend() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildLegendItem('Disponible', Colors.green),
-        _buildLegendItem('Réservé', Colors.red),
-        _buildLegendItem('Aujourd\'hui', Colors.blue),
+        Text(
+          'Légende:',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+        ),
+        SizedBox(height: 8),
+        Wrap(
+          spacing: 16,
+          runSpacing: 8,
+          children: [
+            _buildLegendItem('Disponible', Colors.green),
+            _buildLegendItem('Réservé', Colors.red),
+            _buildLegendItem('Aujourd\'hui', Colors.blue),
+            _buildLegendItem('Passé', Colors.grey),
+          ],
+        ),
       ],
     );
   }
 
   Widget _buildLegendItem(String text, Color color) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 12,
-          height: 12,
+          width: 16,
+          height: 16,
           decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(2),
+            color: color.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: color,
+              width: 1,
+            ),
           ),
         ),
-        SizedBox(width: 4),
+        SizedBox(width: 6),
         Text(
           text,
           style: TextStyle(fontSize: 12),
