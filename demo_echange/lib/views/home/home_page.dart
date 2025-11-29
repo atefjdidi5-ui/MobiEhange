@@ -3,10 +3,13 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth-provider.dart';
 import '../../providers/item_provider.dart';
+import '../../providers/reservation_provider.dart';
 import '../../widgets/item_card.dart';
 import '../item/add_item_page.dart';
 import '../item/item_detail_page.dart';
-
+import '../reservations/cart_page.dart';
+import '../reservations/my_reservations_page.dart';
+import '../reservations/owner_reservations_page.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -22,6 +25,19 @@ class _HomePageState extends State<HomePage> {
     // Charger les items au démarrage
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<ItemProvider>(context, listen: false).loadItems();
+
+      // Load user cart and reservations if user is authenticated
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final reservationProvider = Provider.of<ReservationProvider>(context, listen: false);
+
+      if (authProvider.appUser != null) {
+        reservationProvider.loadUserCart(
+            authProvider.appUser!.id,
+            authProvider.appUser!.name
+        );
+        reservationProvider.loadUserReservations(authProvider.appUser!.id);
+        reservationProvider.loadOwnerReservations(authProvider.appUser!.id);
+      }
     });
   }
 
@@ -29,12 +45,83 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final itemProvider = Provider.of<ItemProvider>(context);
+    final reservationProvider = Provider.of<ReservationProvider>(context);
 
     return Scaffold(
       appBar: AppBar(
         title: Text('DEVMOB Echange'),
         backgroundColor: Colors.blue,
         actions: [
+          // Cart icon with badge in AppBar
+          Stack(
+            children: [
+              IconButton(
+                icon: Icon(Icons.shopping_cart),
+                onPressed: () {
+                  setState(() {
+                    _currentIndex = 2; // Navigate to cart tab
+                  });
+                },
+              ),
+              if (reservationProvider.cart != null && reservationProvider.cart!.items.isNotEmpty)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Text(
+                      reservationProvider.cart!.itemCount.toString(),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          // Reservations icon with badge
+          Stack(
+            children: [
+              IconButton(
+                icon: Icon(Icons.calendar_today),
+                onPressed: () {
+                  setState(() {
+                    _currentIndex = 3; // Navigate to reservations tab
+                  });
+                },
+              ),
+              if (_hasPendingReservations(reservationProvider))
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Text(
+                      _getPendingReservationsCount(reservationProvider).toString(),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
           IconButton(
             icon: Icon(Icons.search),
             onPressed: () {
@@ -58,9 +145,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: _currentIndex == 0
-          ? _buildHomeTab(itemProvider)
-          : _buildProfileTab(authProvider, itemProvider),
+      body: _buildCurrentTab(_currentIndex, authProvider, itemProvider),
       floatingActionButton: _currentIndex == 0
           ? FloatingActionButton(
         onPressed: () {
@@ -73,27 +158,150 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: Colors.blue,
       )
           : null,
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        items: [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Accueil',
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (index) {
+            setState(() {
+              _currentIndex = index;
+            });
+          },
+          backgroundColor: Colors.blue, // Set background color
+          selectedItemColor: Colors.white, // Selected item color
+          unselectedItemColor: Colors.white70, // Unselected item color
+          type: BottomNavigationBarType.fixed, // Important for more than 3 items
+          items: [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home),
+              label: 'Accueil',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person),
+              label: 'Profil',
+            ),
+            BottomNavigationBarItem(
+              icon: Stack(
+                children: [
+                  Icon(Icons.shopping_cart),
+                  if (reservationProvider.cart != null && reservationProvider.cart!.items.isNotEmpty)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: BoxConstraints(minWidth: 12, minHeight: 12),
+                        child: Text(
+                          reservationProvider.cart!.itemCount.toString(),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              label: 'Panier',
+            ),
+            BottomNavigationBarItem(
+              icon: Stack(
+                children: [
+                  Icon(Icons.calendar_today),
+                  if (_hasPendingReservations(reservationProvider))
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.orange,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: BoxConstraints(minWidth: 12, minHeight: 12),
+                        child: Text(
+                          _getPendingReservationsCount(reservationProvider).toString(),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              label: 'Réservations',
+            ),
+          ],
+        )
+
+    );
+  }
+
+  bool _hasPendingReservations(ReservationProvider reservationProvider) {
+    final pendingUserReservations = reservationProvider.reservations
+        .where((r) => r.status == 'pending').length;
+    final pendingOwnerReservations = reservationProvider.receivedReservations
+        .where((r) => r.status == 'pending').length;
+
+    return pendingUserReservations > 0 || pendingOwnerReservations > 0;
+  }
+
+  int _getPendingReservationsCount(ReservationProvider reservationProvider) {
+    final pendingUserReservations = reservationProvider.reservations
+        .where((r) => r.status == 'pending').length;
+    final pendingOwnerReservations = reservationProvider.receivedReservations
+        .where((r) => r.status == 'pending').length;
+
+    return pendingUserReservations + pendingOwnerReservations;
+  }
+
+  Widget _buildCurrentTab(int index, AuthProvider authProvider, ItemProvider itemProvider) {
+    switch (index) {
+      case 0:
+        return _buildHomeTab(itemProvider);
+      case 1:
+        return _buildProfileTab(authProvider, itemProvider);
+      case 2:
+        return CartPage();
+      case 3:
+        return _buildReservationsTab(authProvider);
+      default:
+        return _buildHomeTab(itemProvider);
+    }
+  }
+
+  Widget _buildReservationsTab(AuthProvider authProvider) {
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Mes Réservations'),
+          backgroundColor: Colors.blue,
+          bottom: TabBar(
+            tabs: [
+              Tab(text: 'Mes Demandes'),
+              Tab(text: 'Demandes Reçues'),
+            ],
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profil',
-          ),
-        ],
+        ),
+        body: TabBarView(
+          children: [
+            MyReservationsPage(),
+            OwnerReservationsPage(),
+          ],
+        ),
       ),
     );
   }
 
+  // ... rest of your existing _buildHomeTab, _buildProfileTab methods remain the same
   Widget _buildHomeTab(ItemProvider itemProvider) {
     if (itemProvider.isLoading && itemProvider.items.isEmpty) {
       return Center(child: CircularProgressIndicator());
@@ -195,8 +403,96 @@ class _HomePageState extends State<HomePage> {
           ),
           SizedBox(height: 10),
           _buildMyItemsList(itemProvider),
+          SizedBox(height: 20),
+          _buildReservationQuickStats(authProvider),
         ],
       ),
+    );
+  }
+
+  Widget _buildReservationQuickStats(AuthProvider authProvider) {
+    final reservationProvider = Provider.of<ReservationProvider>(context);
+
+    return Card(
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Mes Réservations',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildStatItem(
+                  'En attente',
+                  _getPendingReservationsCount(reservationProvider).toString(),
+                  Colors.orange,
+                ),
+                _buildStatItem(
+                  'Acceptées',
+                  reservationProvider.reservations
+                      .where((r) => r.status == 'accepted').length.toString(),
+                  Colors.green,
+                ),
+                _buildStatItem(
+                  'Reçues',
+                  reservationProvider.receivedReservations.length.toString(),
+                  Colors.blue,
+                ),
+              ],
+            ),
+            SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _currentIndex = 3; // Navigate to reservations tab
+                });
+              },
+              child: Text('Voir toutes mes réservations'),
+              style: ElevatedButton.styleFrom(
+                minimumSize: Size(double.infinity, 40),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String title, String value, Color color) {
+    return Column(
+      children: [
+        Container(
+          padding: EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ),
+        SizedBox(height: 4),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
+          ),
+        ),
+      ],
     );
   }
 

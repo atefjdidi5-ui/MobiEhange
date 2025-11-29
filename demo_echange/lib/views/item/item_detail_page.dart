@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../models/Item.dart';
+import '../../models/ReservationCart.dart';
+import '../../providers/auth-provider.dart';
+import '../../providers/reservation_provider.dart';
+import '../../widgets/availability_calendar.dart';
+import '../reservations/reservation_form_page.dart';
 import 'edit_item_page.dart';
 
 class ItemDetailPage extends StatelessWidget {
@@ -9,11 +15,14 @@ class ItemDetailPage extends StatelessWidget {
   const ItemDetailPage({
     Key? key,
     required this.item,
-    this.isOwner = true,
+    this.isOwner = false,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    final reservationProvider = Provider.of<ReservationProvider>(context);
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Détails de l\'objet'),
@@ -34,7 +43,7 @@ class ItemDetailPage extends StatelessWidget {
       ),
       body: Column(
         children: [
-          // Item Image Placeholder
+          // Item Image Placeholder - Fixed height
           Container(
             height: 250,
             width: double.infinity,
@@ -51,10 +60,12 @@ class ItemDetailPage extends StatelessWidget {
             ),
           ),
 
+          // Scrollable content area
           Expanded(
-            child: Padding(
+            child: SingleChildScrollView(
               padding: EdgeInsets.all(16.0),
-              child: ListView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Title and Price
                   Row(
@@ -202,38 +213,127 @@ class ItemDetailPage extends StatelessWidget {
                     SizedBox(height: 20),
                   ],
 
+
+
+                  SizedBox(height: 20),
+                  AvailabilityCalendar(itemId: item.id),
                   // Action Buttons
                   if (!isOwner) ...[
-                    ElevatedButton(
+                    if (item.isAvailable) ...[
+                      // Reserve Now Button
+                      ElevatedButton(
+                        onPressed: () => _reserveNow(context),
+                        style: ElevatedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor: Theme.of(context).primaryColor,
+                          minimumSize: Size(double.infinity, 50),
+                        ),
+                        child: Text(
+                          'Réserver maintenant',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 10),
+
+                      // Add to Cart Button
+                      Consumer<ReservationProvider>(
+                        builder: (context, reservationProvider, child) {
+                          final isInCart = reservationProvider.cart?.items
+                              .any((cartItem) => cartItem.itemId == item.id) ?? false;
+
+                          return OutlinedButton(
+                            onPressed: reservationProvider.isCartLoading
+                                ? null
+                                : () => _addToCart(context, reservationProvider, authProvider),
+                            style: OutlinedButton.styleFrom(
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              side: BorderSide(
+                                color: isInCart ? Colors.green : Theme.of(context).primaryColor,
+                              ),
+                              minimumSize: Size(double.infinity, 50),
+                            ),
+                            child: reservationProvider.isCartLoading
+                                ? SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                                : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  isInCart ? Icons.check : Icons.add_shopping_cart,
+                                  color: isInCart ? Colors.green : Theme.of(context).primaryColor,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  isInCart ? 'Ajouté au panier' : 'Ajouter au panier',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: isInCart ? Colors.green : Theme.of(context).primaryColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                      SizedBox(height: 10),
+                    ],
+
+                    // Contact Owner Button
+                    OutlinedButton(
                       onPressed: item.isAvailable ? () => _contactOwner(context) : null,
-                      style: ElevatedButton.styleFrom(
+                      style: OutlinedButton.styleFrom(
                         padding: EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: Theme.of(context).primaryColor,
+                        side: BorderSide(color: Colors.grey),
+                        minimumSize: Size(double.infinity, 50),
                       ),
                       child: Text(
                         'Contacter le propriétaire',
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: Colors.grey[700],
                         ),
                       ),
                     ),
-                    SizedBox(height: 10),
-                    OutlinedButton(
-                      onPressed: item.isAvailable ? () => _rentItem(context) : null,
-                      style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: Text(
-                        'Réserver maintenant',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                  ] else if (isOwner) ...[
+                    // Owner view - show management options
+                    Card(
+                      color: Colors.blue[50],
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Gestion de votre objet',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue[800],
+                              ),
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              'Vous êtes le propriétaire de cet objet. Utilisez le bouton modifier pour apporter des changements.',
+                              style: TextStyle(color: Colors.blue[700]),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ],
+
+
+                  // Add some extra space at the bottom for better scrolling
+                  SizedBox(height: 20),
                 ],
               ),
             ),
@@ -265,21 +365,171 @@ class ItemDetailPage extends StatelessWidget {
     );
   }
 
-  void _rentItem(BuildContext context) {
-    showDialog(
+  void _reserveNow(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReservationFormPage(
+          itemId: item.id,
+          itemTitle: item.title,
+          dailyPrice: item.dailyPrice,
+          ownerId: item.ownerId,
+        ),
+      ),
+    );
+  }
+
+  void _addToCart(BuildContext context, ReservationProvider reservationProvider, AuthProvider authProvider) async {
+    if (authProvider.appUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Veuillez vous connecter pour ajouter au panier'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final isInCart = reservationProvider.cart?.items
+        .any((cartItem) => cartItem.itemId == item.id) ?? false;
+
+    if (isInCart) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Cet objet est déjà dans votre panier'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final selectedDates = await _showDateSelectionDialog(context);
+    if (selectedDates == null) return;
+
+    final (startDate, endDate) = selectedDates;
+
+    final cartItem = ReservationCartItem(
+      itemId: item.id,
+      itemTitle: item.title,
+      ownerId: item.ownerId,
+      dailyPrice: item.dailyPrice,
+      startDate: startDate,
+      endDate: endDate,
+      message: '',
+    );
+
+    final success = await reservationProvider.addToCart(
+      cartItem,
+      authProvider.appUser!.id,
+      authProvider.appUser!.name,
+    );
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Objet ajouté au panier avec succès!'),
+          backgroundColor: Colors.green,
+          action: SnackBarAction(
+            label: 'Voir le panier',
+            textColor: Colors.white,
+            onPressed: () {
+              Navigator.pushNamed(context, '/cart');
+            },
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur: L\'objet n\'est pas disponible pour ces dates'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<(DateTime, DateTime)?> _showDateSelectionDialog(BuildContext context) async {
+    DateTime? startDate;
+    DateTime? endDate;
+
+    return showDialog<(DateTime, DateTime)?>(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Réserver cet objet'),
-          content: Text('Fonctionnalité de réservation à implémenter.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('OK'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: Text('Sélectionner les dates'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  title: Text('Date de début'),
+                  subtitle: Text(startDate == null
+                      ? 'Sélectionner'
+                      : '${startDate!.day}/${startDate!.month}/${startDate!.year}'),
+                  trailing: Icon(Icons.calendar_today),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: DateTime.now(),
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(Duration(days: 365)),
+                    );
+                    if (picked != null) {
+                      setState(() {
+                        startDate = picked;
+                        if (endDate != null && endDate!.isBefore(startDate!)) {
+                          endDate = null;
+                        }
+                      });
+                    }
+                  },
+                ),
+                ListTile(
+                  title: Text('Date de fin'),
+                  subtitle: Text(endDate == null
+                      ? 'Sélectionner'
+                      : '${endDate!.day}/${endDate!.month}/${endDate!.year}'),
+                  trailing: Icon(Icons.calendar_today),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: startDate ?? DateTime.now(),
+                      firstDate: startDate ?? DateTime.now(),
+                      lastDate: DateTime.now().add(Duration(days: 365)),
+                    );
+                    if (picked != null) {
+                      setState(() => endDate = picked);
+                    }
+                  },
+                ),
+                if (startDate != null && endDate != null) ...[
+                  SizedBox(height: 16),
+                  Text(
+                    'Durée: ${endDate!.difference(startDate!).inDays} jour(s)',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'Prix total: ${(endDate!.difference(startDate!).inDays * item.dailyPrice).toStringAsFixed(2)} TND',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                  ),
+                ],
+              ],
             ),
-          ],
-        );
-      },
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text('Annuler'),
+              ),
+              ElevatedButton(
+                onPressed: startDate != null && endDate != null
+                    ? () => Navigator.of(context).pop((startDate!, endDate!))
+                    : null,
+                child: Text('Ajouter au panier'),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
