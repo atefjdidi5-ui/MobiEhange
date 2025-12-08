@@ -1,6 +1,7 @@
 import 'package:demo_echange/providers/auth-provider.dart';
 import 'package:demo_echange/providers/item_provider.dart';
 import 'package:demo_echange/providers/reservation_provider.dart';
+import 'package:demo_echange/providers/stripe_provider.dart';
 import 'package:demo_echange/services/firebase-service.dart';
 import 'package:demo_echange/views/home/home_page.dart';
 import 'package:demo_echange/views/login.dart';
@@ -9,6 +10,7 @@ import 'package:provider/provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await FirebaseService.initialize();
   runApp(MyApp());
 }
@@ -21,6 +23,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ItemProvider()),
         ChangeNotifierProvider(create: (_) => ReservationProvider()),
+        ChangeNotifierProvider(create: (_) => StripeProvider()),
+
       ],
       child: MaterialApp(
         title: 'DEVMOB Echange',

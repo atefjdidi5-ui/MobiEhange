@@ -13,6 +13,11 @@ class Reservation {
   final DateTime createdAt;
   final DateTime? updatedAt;
 
+  String? stripePaymentIntentId;
+  String? stripeCustomerId;
+  String paymentStatus; // 'pending', 'paid', 'failed', 'refunded'
+  String? paymentReceiptUrl;
+
   Reservation({
     required this.id,
     required this.itemId,
@@ -27,6 +32,10 @@ class Reservation {
     required this.status,
     required this.createdAt,
     this.updatedAt,
+    this.stripePaymentIntentId,
+    this.stripeCustomerId,
+    this.paymentStatus = 'pending',
+    this.paymentReceiptUrl
   });
 
   // Add copyWith method
@@ -77,6 +86,10 @@ class Reservation {
       'status': status,
       'createdAt': createdAt.millisecondsSinceEpoch,
       'updatedAt': updatedAt?.millisecondsSinceEpoch,
+      'stripePaymentIntentId': stripePaymentIntentId,
+      'stripeCustomerId': stripeCustomerId,
+      'paymentStatus': paymentStatus,
+      'paymentReceiptUrl': paymentReceiptUrl
     };
   }
 
@@ -95,6 +108,10 @@ class Reservation {
       status: map['status'],
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['createdAt']),
       updatedAt: map['updatedAt'] != null ? DateTime.fromMillisecondsSinceEpoch(map['updatedAt']) : null,
+      stripePaymentIntentId: map['stripePaymentIntentId'],
+      stripeCustomerId: map['stripeCustomerId'],
+      paymentStatus: map['paymentStatus'] ?? 'pending',
+      paymentReceiptUrl: map['paymentReceiptUrl'],
     );
   }
 

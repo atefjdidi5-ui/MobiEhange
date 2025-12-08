@@ -41,6 +41,9 @@ dependencies:
   provider: ^6.1.1
   intl: any
   table_calendar: ^3.0.9
+  flutter_stripe: any
+  http: ^1.1.0
+
 
 dev_dependencies:
   flutter_test:
