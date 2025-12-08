@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../models/Reservation.dart';
 import '../../providers/auth-provider.dart';
 import '../../providers/reservation_provider.dart';
+import '../payment/FlutterwavePaymentPage.dart';
 
 class MyReservationsPage extends StatefulWidget {
   @override
@@ -71,28 +72,44 @@ class _MyReservationsPageState extends State<MyReservationsPage> {
   Widget _buildReservationCard(Reservation reservation) {
     Color statusColor;
     IconData statusIcon;
+    String statusText;
 
     switch (reservation.status) {
       case 'pending':
         statusColor = Colors.orange;
         statusIcon = Icons.access_time;
+        statusText = 'En attente';
         break;
       case 'accepted':
         statusColor = Colors.green;
         statusIcon = Icons.check_circle;
+        statusText = 'Acceptée';
         break;
       case 'rejected':
         statusColor = Colors.red;
         statusIcon = Icons.cancel;
+        statusText = 'Refusée';
         break;
       case 'completed':
         statusColor = Colors.blue;
         statusIcon = Icons.done_all;
+        statusText = 'Terminée';
+        break;
+      case 'cancelled':
+        statusColor = Colors.grey;
+        statusIcon = Icons.cancel;
+        statusText = 'Annulée';
         break;
       default:
         statusColor = Colors.grey;
         statusIcon = Icons.help;
+        statusText = 'Inconnu';
     }
+
+    // Vérifier si le paiement est possible
+    final bool canPay = reservation.status == 'accepted' &&
+        reservation.paymentStatus == 'pending';
+    final bool isPaid = reservation.paymentStatus == 'paid';
 
     return Card(
       margin: EdgeInsets.only(bottom: 12),
@@ -126,7 +143,7 @@ class _MyReservationsPageState extends State<MyReservationsPage> {
                       Icon(statusIcon, size: 16, color: statusColor),
                       SizedBox(width: 4),
                       Text(
-                        _getStatusText(reservation.status),
+                        statusText,
                         style: TextStyle(
                           color: statusColor,
                           fontWeight: FontWeight.bold,
@@ -138,9 +155,44 @@ class _MyReservationsPageState extends State<MyReservationsPage> {
                 ),
               ],
             ),
+
             SizedBox(height: 8),
+
+            // Statut de paiement
+            if (reservation.status == 'accepted')
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _getPaymentStatusColor(reservation.paymentStatus).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _getPaymentStatusColor(reservation.paymentStatus)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _getPaymentStatusIcon(reservation.paymentStatus),
+                      size: 14,
+                      color: _getPaymentStatusColor(reservation.paymentStatus),
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      _getPaymentStatusText(reservation.paymentStatus),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _getPaymentStatusColor(reservation.paymentStatus),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            SizedBox(height: 8),
+
             Text('Prix total: ${reservation.totalPrice.toStringAsFixed(2)} TND'),
             SizedBox(height: 8),
+
             Row(
               children: [
                 Icon(Icons.calendar_today, size: 16, color: Colors.grey),
@@ -151,11 +203,14 @@ class _MyReservationsPageState extends State<MyReservationsPage> {
                 ),
               ],
             ),
+
             SizedBox(height: 8),
+
             Text(
               '${reservation.numberOfDays} jour(s)',
               style: TextStyle(color: Colors.grey[600]),
             ),
+
             if (reservation.message != null && reservation.message!.isNotEmpty) ...[
               SizedBox(height: 8),
               Text(
@@ -163,36 +218,121 @@ class _MyReservationsPageState extends State<MyReservationsPage> {
                 style: TextStyle(fontStyle: FontStyle.italic),
               ),
             ],
+
             SizedBox(height: 12),
-            if (reservation.status == 'pending')
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => _cancelReservation(reservation.id),
-                      child: Text('Annuler'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
+
+            // Boutons d'action
+            Column(
+              children: [
+                // Bouton de paiement si la réservation est acceptée et non payée
+                if (canPay)
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _proceedToPayment(reservation),
+                      icon: Icon(Icons.payment, size: 20),
+                      label: Text(
+                        'Payer ${reservation.totalPrice.toStringAsFixed(2)} TND',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(0xFFF5A623), // Couleur Flutterwave
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
                   ),
-                ],
-              ),
+
+                // Bouton d'annulation si en attente
+                if (reservation.status == 'pending')
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => _cancelReservation(reservation.id),
+                      child: Text('Annuler la réservation'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+
+                // Bouton de détails si payée
+                if (isPaid && reservation.paymentReceiptUrl != null)
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showPaymentDetails(reservation),
+                      icon: Icon(Icons.receipt, size: 20),
+                      label: Text('Voir le reçu'),
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 
-  String _getStatusText(String status) {
-    switch (status) {
-      case 'pending': return 'En attente';
-      case 'accepted': return 'Acceptée';
-      case 'rejected': return 'Refusée';
-      case 'completed': return 'Terminée';
-      case 'cancelled': return 'Annulée';
-      default: return status;
+  // Méthodes pour le statut de paiement
+  Color _getPaymentStatusColor(String paymentStatus) {
+    switch (paymentStatus) {
+      case 'paid':
+        return Colors.green;
+      case 'pending':
+        return Colors.orange;
+      case 'failed':
+        return Colors.red;
+      case 'cancelled':
+        return Colors.grey;
+      default:
+        return Colors.grey;
     }
+  }
+
+  IconData _getPaymentStatusIcon(String paymentStatus) {
+    switch (paymentStatus) {
+      case 'paid':
+        return Icons.check_circle;
+      case 'pending':
+        return Icons.access_time;
+      case 'failed':
+        return Icons.error;
+      case 'cancelled':
+        return Icons.cancel;
+      default:
+        return Icons.help;
+    }
+  }
+
+  String _getPaymentStatusText(String paymentStatus) {
+    switch (paymentStatus) {
+      case 'paid':
+        return 'Payée';
+      case 'pending':
+        return 'Paiement en attente';
+      case 'failed':
+        return 'Paiement échoué';
+      case 'cancelled':
+        return 'Paiement annulé';
+      default:
+        return 'Statut inconnu';
+    }
+  }
+
+  void _proceedToPayment(Reservation reservation) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FlutterwavePaymentPage(
+          reservation: reservation,
+        ),
+      ),
+    );
   }
 
   void _cancelReservation(String reservationId) {
@@ -217,6 +357,76 @@ class _MyReservationsPageState extends State<MyReservationsPage> {
                 );
               },
               child: Text('Oui'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showPaymentDetails(Reservation reservation) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Détails du paiement'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: Icon(Icons.shopping_bag),
+                  title: Text('Article'),
+                  subtitle: Text(reservation.itemTitle),
+                ),
+                ListTile(
+                  leading: Icon(Icons.calendar_today),
+                  title: Text('Période'),
+                  subtitle: Text(
+                    '${DateFormat('dd/MM/yyyy').format(reservation.startDate)} - ${DateFormat('dd/MM/yyyy').format(reservation.endDate)}',
+                  ),
+                ),
+                ListTile(
+                  leading: Icon(Icons.attach_money),
+                  title: Text('Montant payé'),
+                  subtitle: Text(
+                    '${reservation.totalPrice.toStringAsFixed(2)} TND',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
+                  ),
+                ),
+                if (reservation.flutterwaveTxRef != null)
+                  ListTile(
+                    leading: Icon(Icons.receipt),
+                    title: Text('Référence transaction'),
+                    subtitle: Text(reservation.flutterwaveTxRef!),
+                  ),
+                if (reservation.paymentReceiptUrl != null)
+                  ListTile(
+                    leading: Icon(Icons.link),
+                    title: Text('Lien du reçu'),
+                    subtitle: Text(
+                      'Cliquez pour ouvrir',
+                      style: TextStyle(
+                        color: Colors.blue,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                    onTap: () {
+                      // Ici vous pouvez ajouter la logique pour ouvrir le lien
+                      // _openReceiptUrl(reservation.paymentReceiptUrl!);
+                    },
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Fermer'),
             ),
           ],
         );

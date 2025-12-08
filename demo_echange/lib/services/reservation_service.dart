@@ -1,9 +1,9 @@
 // services/reservation_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:demo_echange/services/stripe_service.dart';
 import '../models/Reservation.dart';
 import '../models/ReservationCart.dart';
 import 'firebase-service.dart';
+import 'stripe_service.dart';
 
 class ReservationService {
   final FirebaseFirestore _firestore = FirebaseService.firestore;
@@ -104,6 +104,48 @@ class ReservationService {
     }
   }
 
+  Future<List<Reservation>> confirmCart(String renterId, String renterEmail, String renterName) async {
+    try {
+      final cart = await getOrCreateCart(renterId, renterName);
+      final List<Reservation> reservations = [];
+
+      for (final item in cart.items) {
+        // Check availability
+        final isAvailable = await isItemAvailable(item.itemId, item.startDate, item.endDate);
+
+        if (!isAvailable) {
+          throw Exception('${item.itemTitle} n\'est plus disponible pour les dates sélectionnées');
+        }
+
+        // Create reservation (sans paiement pour l'instant)
+        final reservation = Reservation(
+          id: '',
+          itemId: item.itemId,
+          itemTitle: item.itemTitle,
+          ownerId: item.ownerId,
+          renterId: renterId,
+          renterName: renterName,
+          startDate: item.startDate,
+          endDate: item.endDate,
+          totalPrice: item.totalPrice,
+          message: item.message,
+          status: 'pending', // Attente d'acceptation du propriétaire
+          createdAt: DateTime.now(),
+          paymentStatus: 'pending',
+        );
+
+        final reservationId = await createReservation(reservation);
+        reservations.add(reservation.copyWith(id: reservationId));
+      }
+
+      // Clear cart
+      await clearCart(renterId);
+      return reservations;
+    } catch (e) {
+      print('Error confirming cart: $e');
+      rethrow;
+    }
+  }
 
   Stream<ReservationCart?> getCartStream(String renterId) {
     return _firestore
@@ -172,39 +214,47 @@ class ReservationService {
     }
   }
 
-
-
-
-  // payment
-  Future<Reservation> createReservationWithPayment({
-    required Reservation reservation,
+  // Méthode pour initier le paiement après acceptation
+  Future<Reservation> initiatePaymentAfterAcceptance({
+    required String reservationId,
     required String customerEmail,
     required String customerName,
+    required String customerPhone,
   }) async {
     try {
+      final reservationDoc = await _firestore.collection('reservations').doc(reservationId).get();
+      if (!reservationDoc.exists) {
+        throw Exception('Réservation non trouvée');
+      }
 
+      final reservation = Reservation.fromMap(reservationDoc.data()!);
 
-      // Si paiement requis, créer le PaymentIntent
-      final paymentIntent = await StripeService.createPaymentIntent(
-        amount: reservation.totalPrice,
-        currency: 'eur',
-        customerEmail: customerEmail,
-        itemName: reservation.itemTitle,
-        reservationId: reservation.id,
+      // Vérifier que la réservation est acceptée
+      if (reservation.status != 'accepted') {
+        throw Exception('La réservation doit être acceptée avant le paiement');
+      }
+
+      // Vérifier que le paiement n'a pas déjà été fait
+      if (reservation.isPaid || reservation.paymentStatus == 'paid') {
+        throw Exception('Paiement déjà effectué');
+      }
+
+      // Générer un txRef unique
+      final txRef = 'DEVMOB_${DateTime.now().millisecondsSinceEpoch}_${reservation.id}';
+
+      // Mettre à jour la réservation avec txRef
+      await updateReservationPaymentStatus(
+        reservationId: reservationId,
+        paymentStatus: 'pending',
+        flutterwaveTxRef: txRef,
       );
 
-      // Créer la réservation avec PaymentIntent ID
-      final docRef = _firestore.collection('reservations').doc();
-      final newReservation = reservation.copyWith(
-        id: docRef.id,
-        stripePaymentIntentId: paymentIntent['id'],
+      return reservation.copyWith(
+        flutterwaveTxRef: txRef,
         paymentStatus: 'pending',
       );
-
-      await docRef.set(newReservation.toMap());
-      return newReservation;
     } catch (e) {
-      print('Error creating reservation with payment: $e');
+      print('Erreur d\'initiation du paiement: $e');
       rethrow;
     }
   }
@@ -212,7 +262,9 @@ class ReservationService {
   Future<void> updateReservationPaymentStatus({
     required String reservationId,
     required String paymentStatus,
-    String? stripePaymentIntentId,
+    String? flutterwaveTxRef,
+    String? flutterwaveTransactionId,
+    String? flutterwaveCheckoutId,
     String? paymentReceiptUrl,
   }) async {
     try {
@@ -221,8 +273,16 @@ class ReservationService {
         'updatedAt': DateTime.now().millisecondsSinceEpoch,
       };
 
-      if (stripePaymentIntentId != null) {
-        updateData['stripePaymentIntentId'] = stripePaymentIntentId;
+      if (flutterwaveTxRef != null) {
+        updateData['flutterwaveTxRef'] = flutterwaveTxRef;
+      }
+
+      if (flutterwaveTransactionId != null) {
+        updateData['flutterwaveTransactionId'] = flutterwaveTransactionId;
+      }
+
+      if (flutterwaveCheckoutId != null) {
+        updateData['flutterwaveCheckoutId'] = flutterwaveCheckoutId;
       }
 
       if (paymentReceiptUrl != null) {
@@ -231,112 +291,29 @@ class ReservationService {
 
       await _firestore.collection('reservations').doc(reservationId).update(updateData);
     } catch (e) {
-      print('Error updating payment status: $e');
+      print('Erreur de mise à jour du statut de paiement: $e');
       rethrow;
     }
   }
 
-  // Modifiez confirmCart pour ne pas créer de paiement immédiatement
-  Future<List<Reservation>> confirmCart(String renterId, String renterEmail, String renterName) async {
-    try {
-      final cart = await getOrCreateCart(renterId, renterName);
-      final List<Reservation> reservations = [];
 
-      for (final item in cart.items) {
-        // Check availability
-        final isAvailable = await isItemAvailable(item.itemId, item.startDate, item.endDate);
-
-        if (!isAvailable) {
-          throw Exception('${item.itemTitle} n\'est plus disponible pour les dates sélectionnées');
-        }
-
-        // Create reservation (sans paiement pour l'instant)
-        final reservation = Reservation(
-          id: '',
-          itemId: item.itemId,
-          itemTitle: item.itemTitle,
-          ownerId: item.ownerId,
-          renterId: renterId,
-          renterName: renterName,
-          startDate: item.startDate,
-          endDate: item.endDate,
-          totalPrice: item.totalPrice,
-          message: item.message,
-          status: 'pending', // Attente d'acceptation du propriétaire
-          createdAt: DateTime.now(),
-          paymentRequired: item.totalPrice > 0, // Si prix > 0, paiement requis
-          isFree: item.totalPrice == 0, // Si prix = 0, c'est gratuit
-          paymentStatus: 'pending',
-        );
-
-        final reservationId = await createReservation(reservation);
-        reservations.add(reservation.copyWith(id: reservationId));
-      }
-
-      // Clear cart
-      await clearCart(renterId);
-      return reservations;
-    } catch (e) {
-      print('Error confirming cart: $e');
-      rethrow;
-    }
-  }
-
-  // Méthode pour initier le paiement après acceptation
-  Future<Reservation> initiatePaymentAfterAcceptance({
+  // Méthode pour confirmer le paiement réussi
+  Future<void> confirmPaymentSuccess({
     required String reservationId,
-    required String customerEmail,
-    required String customerName,
+    required String flutterwaveTxRef,
+    required String flutterwaveTransactionId,
+    required String receiptUrl,
   }) async {
     try {
-      final reservationDoc = await _firestore.collection('reservations').doc(reservationId).get();
-      if (!reservationDoc.exists) {
-        throw Exception('Reservation not found');
-      }
-
-      final reservation = Reservation.fromMap(reservationDoc.data()!);
-
-      // Vérifier que la réservation est acceptée
-      if (reservation.status != 'accepted') {
-        throw Exception('Reservation must be accepted before payment');
-      }
-
-      // Vérifier que le paiement n'a pas déjà été fait
-      if (reservation.isPaid || reservation.paymentStatus == 'paid') {
-        throw Exception('Payment already completed');
-      }
-
-      // Si c'est gratuit
-      if (reservation.isFree || !reservation.paymentRequired) {
-        await updateReservationPaymentStatus(
-          reservationId: reservationId,
-          paymentStatus: 'not_required',
-        );
-        return reservation.copyWith(paymentStatus: 'not_required');
-      }
-
-      // Créer PaymentIntent pour une réservation existante
-      final paymentIntent = await StripeService.createPaymentIntent(
-        amount: reservation.totalPrice,
-        currency: 'eur',
-        customerEmail: customerEmail,
-        itemName: reservation.itemTitle,
-        reservationId: reservationId,
-      );
-
-      // Mettre à jour la réservation avec PaymentIntent ID
       await updateReservationPaymentStatus(
         reservationId: reservationId,
-        paymentStatus: 'pending',
-        stripePaymentIntentId: paymentIntent['id'],
-      );
-
-      return reservation.copyWith(
-        stripePaymentIntentId: paymentIntent['id'],
-        paymentStatus: 'pending',
+        paymentStatus: 'paid',
+        flutterwaveTxRef: flutterwaveTxRef,
+        flutterwaveTransactionId: flutterwaveTransactionId,
+        paymentReceiptUrl: receiptUrl,
       );
     } catch (e) {
-      print('Error initiating payment: $e');
+      print('Erreur de confirmation du paiement: $e');
       rethrow;
     }
   }

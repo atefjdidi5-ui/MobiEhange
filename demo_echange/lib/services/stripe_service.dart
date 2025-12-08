@@ -5,9 +5,9 @@ import 'package:http/http.dart' as http;
 class StripeService {
   static const String _stripeApiUrl = 'https://api.stripe.com/v1';
 
-  // Utilisez vos clés Stripe ici (à mettre dans une variable d'environnement plus tard)
-  static const String _secretKey = 'sk_test_your_secret_key_here';
-  static const String _publishableKey = 'pk_test_your_publishable_key_here';
+  // REMPLACEZ CES CLÉS PAR LES VÔTRES
+  static const String _secretKey = 'sk_test_votre_clé_secrète_ici';
+  static const String _publishableKey = 'pk_test_votre_clé_publique_ici';
 
   static String get publishableKey => _publishableKey;
 
@@ -27,7 +27,7 @@ class StripeService {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: {
-        'amount': (amount * 100).toStringAsFixed(0), // Convert to cents
+        'amount': (amount * 100).toStringAsFixed(0), // Convertir en centimes
         'currency': currency.toLowerCase(),
         'customer_email': customerEmail,
         'description': 'Paiement pour: $itemName',
@@ -39,7 +39,7 @@ class StripeService {
     if (response.statusCode == 200) {
       return json.decode(response.body);
     } else {
-      throw Exception('Failed to create payment intent: ${response.body}');
+      throw Exception('Échec de création du payment intent: ${response.body}');
     }
   }
 
@@ -56,7 +56,7 @@ class StripeService {
     if (response.statusCode == 200) {
       return json.decode(response.body);
     } else {
-      throw Exception('Failed to retrieve payment intent: ${response.body}');
+      throw Exception('Échec de récupération du payment intent: ${response.body}');
     }
   }
 

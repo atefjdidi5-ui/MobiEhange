@@ -1,15 +1,13 @@
+// views/payment/PaymentSuccessPage.dart
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../models/Reservation.dart';
 
 class PaymentSuccessPage extends StatelessWidget {
-  final List<Reservation> reservations;
-  final String? receiptUrl;
+  final Reservation reservation;
 
   const PaymentSuccessPage({
     Key? key,
-    required this.reservations,
-    this.receiptUrl,
+    required this.reservation,
   }) : super(key: key);
 
   @override
@@ -37,7 +35,7 @@ class PaymentSuccessPage extends StatelessWidget {
               ),
               SizedBox(height: 16),
               Text(
-                'Votre réservation a été confirmée',
+                'Votre réservation a été confirmée et payée',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 16),
               ),
@@ -57,13 +55,27 @@ class PaymentSuccessPage extends StatelessWidget {
                         ),
                       ),
                       SizedBox(height: 12),
-                      ...reservations.map((reservation) => ListTile(
-                        title: Text(reservation.itemTitle),
+                      ListTile(
+                        title: Text('Article:'),
+                        subtitle: Text(reservation.itemTitle),
+                      ),
+                      ListTile(
+                        title: Text('Période:'),
                         subtitle: Text(
                           '${reservation.startDate.day}/${reservation.startDate.month}/${reservation.startDate.year} - ${reservation.endDate.day}/${reservation.endDate.month}/${reservation.endDate.year}',
                         ),
-                        trailing: Text('${reservation.totalPrice} TND'),
-                      )).toList(),
+                      ),
+                      ListTile(
+                        title: Text('Prix total:'),
+                        subtitle: Text(
+                          '${reservation.totalPrice.toStringAsFixed(2)} TND',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -71,17 +83,7 @@ class PaymentSuccessPage extends StatelessWidget {
 
               SizedBox(height: 24),
 
-              // Boutons d'action
-              if (receiptUrl != null)
-                Padding(
-                  padding: EdgeInsets.only(bottom: 12),
-                  child: OutlinedButton.icon(
-                    onPressed: () => _launchReceipt(receiptUrl!),
-                    icon: Icon(Icons.receipt),
-                    label: Text('Voir le reçu'),
-                  ),
-                ),
-
+              // Bouton pour retourner à l'accueil
               ElevatedButton(
                 onPressed: () {
                   Navigator.pushNamedAndRemoveUntil(
@@ -97,11 +99,5 @@ class PaymentSuccessPage extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Future<void> _launchReceipt(String url) async {
-    if (await canLaunch(url)) {
-      await launch(url);
-    }
   }
 }

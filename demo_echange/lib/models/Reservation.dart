@@ -1,3 +1,4 @@
+// models/Reservation.dart - Ajoutez ces champs
 class Reservation {
   final String id;
   final String itemId;
@@ -9,14 +10,16 @@ class Reservation {
   final DateTime endDate;
   final double totalPrice;
   final String? message;
-  final String status; // 'pending', 'accepted', 'rejected', 'completed', 'cancelled'
+  final String status;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
-  String? stripePaymentIntentId;
-  String? stripeCustomerId;
-  String paymentStatus; // 'pending', 'paid', 'failed', 'refunded'
-  String? paymentReceiptUrl;
+  // Champs Flutterwave (remplacez Stripe)
+  final String? flutterwaveTxRef;
+  final String? flutterwaveTransactionId;
+  final String? flutterwaveCheckoutId;
+  final String paymentStatus; // 'pending', 'paid', 'failed'
+  final String? paymentReceiptUrl;
 
   Reservation({
     required this.id,
@@ -32,13 +35,14 @@ class Reservation {
     required this.status,
     required this.createdAt,
     this.updatedAt,
-    this.stripePaymentIntentId,
-    this.stripeCustomerId,
+    this.flutterwaveTxRef,
+    this.flutterwaveTransactionId,
+    this.flutterwaveCheckoutId,
     this.paymentStatus = 'pending',
-    this.paymentReceiptUrl
+    this.paymentReceiptUrl,
   });
 
-  // Add copyWith method
+  // Mettez à jour copyWith()
   Reservation copyWith({
     String? id,
     String? itemId,
@@ -53,6 +57,11 @@ class Reservation {
     String? status,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? flutterwaveTxRef,
+    String? flutterwaveTransactionId,
+    String? flutterwaveCheckoutId,
+    String? paymentStatus,
+    String? paymentReceiptUrl,
   }) {
     return Reservation(
       id: id ?? this.id,
@@ -68,9 +77,15 @@ class Reservation {
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      flutterwaveTxRef: flutterwaveTxRef ?? this.flutterwaveTxRef,
+      flutterwaveTransactionId: flutterwaveTransactionId ?? this.flutterwaveTransactionId,
+      flutterwaveCheckoutId: flutterwaveCheckoutId ?? this.flutterwaveCheckoutId,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      paymentReceiptUrl: paymentReceiptUrl ?? this.paymentReceiptUrl,
     );
   }
 
+  // Mettez à jour toMap()
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -86,13 +101,15 @@ class Reservation {
       'status': status,
       'createdAt': createdAt.millisecondsSinceEpoch,
       'updatedAt': updatedAt?.millisecondsSinceEpoch,
-      'stripePaymentIntentId': stripePaymentIntentId,
-      'stripeCustomerId': stripeCustomerId,
+      'flutterwaveTxRef': flutterwaveTxRef,
+      'flutterwaveTransactionId': flutterwaveTransactionId,
+      'flutterwaveCheckoutId': flutterwaveCheckoutId,
       'paymentStatus': paymentStatus,
-      'paymentReceiptUrl': paymentReceiptUrl
+      'paymentReceiptUrl': paymentReceiptUrl,
     };
   }
 
+  // Mettez à jour fromMap()
   static Reservation fromMap(Map<String, dynamic> map) {
     return Reservation(
       id: map['id'],
@@ -107,17 +124,19 @@ class Reservation {
       message: map['message'],
       status: map['status'],
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['createdAt']),
-      updatedAt: map['updatedAt'] != null ? DateTime.fromMillisecondsSinceEpoch(map['updatedAt']) : null,
-      stripePaymentIntentId: map['stripePaymentIntentId'],
-      stripeCustomerId: map['stripeCustomerId'],
+      updatedAt: map['updatedAt'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['updatedAt'])
+          : null,
+      flutterwaveTxRef: map['flutterwaveTxRef'],
+      flutterwaveTransactionId: map['flutterwaveTransactionId'],
+      flutterwaveCheckoutId: map['flutterwaveCheckoutId'],
       paymentStatus: map['paymentStatus'] ?? 'pending',
       paymentReceiptUrl: map['paymentReceiptUrl'],
     );
   }
 
-  // Optional: Add a helper method to calculate number of days
+  // Helper methods
+  bool get canPay => status == 'accepted' && paymentStatus == 'pending';
+  bool get isPaid => paymentStatus == 'paid';
   int get numberOfDays => endDate.difference(startDate).inDays;
-
-  // Optional: Add a helper method to check if reservation is active
-  bool get isActive => status == 'pending' || status == 'accepted';
 }

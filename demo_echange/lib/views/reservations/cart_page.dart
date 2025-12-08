@@ -1,8 +1,9 @@
-// cart_page.dart
+// views/reservations/cart_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../models/ReservationCart.dart';
+import '../../models/User.dart';
 import '../../providers/auth-provider.dart';
 import '../../providers/reservation_provider.dart';
 
@@ -13,6 +14,7 @@ class CartPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final reservationProvider = Provider.of<ReservationProvider>(context);
+    final user = authProvider.appUser;
 
     return Scaffold(
       appBar: AppBar(
@@ -22,7 +24,9 @@ class CartPage extends StatelessWidget {
             IconButton(
               icon: Icon(Icons.delete),
               onPressed: () {
-                _showClearCartDialog(context, reservationProvider, authProvider.appUser!.id);
+                if (user != null) {
+                  _showClearCartDialog(context, reservationProvider, user.id);
+                }
               },
             ),
         ],
@@ -47,7 +51,7 @@ class CartPage extends StatelessWidget {
               itemCount: reservationProvider.cart!.items.length,
               itemBuilder: (context, index) {
                 final item = reservationProvider.cart!.items[index];
-                return _buildCartItem(item, reservationProvider, authProvider.appUser!.id);
+                return _buildCartItem(item, reservationProvider, user!.id);
               },
             ),
           ),
@@ -63,7 +67,7 @@ class CartPage extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('Total:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text('${reservationProvider.cart!.totalPrice.toStringAsFixed(2)}€',
+                    Text('${reservationProvider.cart!.totalPrice.toStringAsFixed(2)} TND',
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   ],
                 ),
@@ -73,7 +77,7 @@ class CartPage extends StatelessWidget {
                     return reservationProvider.isLoading
                         ? Center(child: CircularProgressIndicator())
                         : ElevatedButton(
-                      onPressed: () => _confirmCart(context, reservationProvider, authProvider.appUser!.id),
+                      onPressed: () => _confirmCart(context, reservationProvider, user!),
                       child: Text('Confirmer les réservations (${reservationProvider.cart!.itemCount})'),
                       style: ElevatedButton.styleFrom(
                         minimumSize: Size(double.infinity, 50),
@@ -141,8 +145,13 @@ class CartPage extends StatelessWidget {
     );
   }
 
-  void _confirmCart(BuildContext context, ReservationProvider reservationProvider, String renterId) async {
-    final success = await reservationProvider.confirmCart(renterId);
+  void _confirmCart(BuildContext context, ReservationProvider reservationProvider, AppUser user) async {
+    // CORRECTION: Appeler avec 3 paramètres
+    final success = await reservationProvider.confirmCart(
+      user.id,
+      user.email,
+      user.name,
+    );
 
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(

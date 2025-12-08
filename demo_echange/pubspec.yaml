@@ -41,8 +41,10 @@ dependencies:
   provider: ^6.1.1
   intl: any
   table_calendar: ^3.0.9
-  flutter_stripe: any
+  flutterwave_standard: ^1.0.3
   http: ^1.1.0
+  url_launcher: ^6.1.11
+
 
 
 dev_dependencies:

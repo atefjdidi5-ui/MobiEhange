@@ -61,13 +61,13 @@ class ReservationProvider with ChangeNotifier {
     await _reservationService.removeFromCart(itemId, renterId);
   }
 
-  // Confirm cart (create all reservations)
-  Future<bool> confirmCart(String renterId) async {
+  // Confirm cart (create all reservations) - CORRECTION ICI
+  Future<bool> confirmCart(String renterId, String renterEmail, String renterName) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      await _reservationService.confirmCart(renterId);
+      await _reservationService.confirmCart(renterId, renterEmail, renterName);
       _isLoading = false;
       notifyListeners();
       return true;
