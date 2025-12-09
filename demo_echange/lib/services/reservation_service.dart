@@ -181,17 +181,7 @@ class ReservationService {
         .toList());
   }
 
-  Future<void> updateReservationStatus(String reservationId, String status) async {
-    try {
-      await _firestore.collection('reservations').doc(reservationId).update({
-        'status': status,
-        'updatedAt': DateTime.now().millisecondsSinceEpoch,
-      });
-    } catch (e) {
-      print('Error updating reservation: $e');
-      rethrow;
-    }
-  }
+
 
   Future<bool> isItemAvailable(String itemId, DateTime startDate, DateTime endDate) async {
     try {
@@ -305,6 +295,7 @@ class ReservationService {
     required String receiptUrl,
   }) async {
     try {
+      // First update payment status
       await updateReservationPaymentStatus(
         reservationId: reservationId,
         paymentStatus: 'paid',
@@ -312,8 +303,99 @@ class ReservationService {
         flutterwaveTransactionId: flutterwaveTransactionId,
         paymentReceiptUrl: receiptUrl,
       );
+
+      // Then check if we need to setup review system
+      await _setupReviewSystemForReservation(reservationId);
     } catch (e) {
       print('Erreur de confirmation du paiement: $e');
+      rethrow;
+    }
+  }
+
+
+  Future<void> _setupReviewSystemForReservation(String reservationId) async {
+    try {
+      final reservationDoc = await _firestore.collection('reservations').doc(reservationId).get();
+      if (!reservationDoc.exists) return;
+
+      final reservation = Reservation.fromMap(reservationDoc.data()!);
+
+      // Only setup reviews if reservation is accepted AND paid
+      if (reservation.status == 'accepted' && reservation.paymentStatus == 'paid') {
+        // Set review deadline to 14 days from end date (or from now if end date has passed)
+        DateTime reviewDeadline;
+        if (DateTime.now().isAfter(reservation.endDate)) {
+          // End date already passed, start review period from now
+          reviewDeadline = DateTime.now().add(Duration(days: 14));
+        } else {
+          // End date hasn't passed yet, start review period from end date
+          reviewDeadline = reservation.endDate.add(Duration(days: 14));
+        }
+
+        await _firestore.collection('reservations').doc(reservationId).update({
+          'canReviewOwner': true,
+          'canReviewRenter': true,
+          'reviewDeadline': reviewDeadline.millisecondsSinceEpoch,
+          'updatedAt': DateTime.now().millisecondsSinceEpoch,
+        });
+      }
+    } catch (e) {
+      print('Error setting up review system: $e');
+    }
+  }
+
+
+
+  // review feature
+  Future<void> markReservationAsCompleted(String reservationId) async {
+    try {
+      final reservationDoc = await _firestore.collection('reservations').doc(reservationId).get();
+      if (!reservationDoc.exists) return;
+
+      final reservation = Reservation.fromMap(reservationDoc.data()!);
+
+      // Only mark if accepted and paid
+      if (reservation.status == 'accepted' && reservation.paymentStatus == 'paid') {
+        // Set review deadline to 14 days from now (or from end date if not passed)
+        DateTime reviewDeadline;
+        if (DateTime.now().isAfter(reservation.endDate)) {
+          reviewDeadline = DateTime.now().add(Duration(days: 14));
+        } else {
+          reviewDeadline = reservation.endDate.add(Duration(days: 14));
+        }
+
+        await _firestore.collection('reservations').doc(reservationId).update({
+          'canReviewOwner': true,
+          'canReviewRenter': true,
+          'reviewDeadline': reviewDeadline.millisecondsSinceEpoch,
+          'updatedAt': DateTime.now().millisecondsSinceEpoch,
+        });
+      }
+    } catch (e) {
+      print('Error marking reservation as completed: $e');
+      rethrow;
+    }
+  }
+
+
+  Future<void> updateReservationStatus(String reservationId, String status) async {
+    try {
+      final updateData = {
+        'status': status,
+        'updatedAt': DateTime.now().millisecondsSinceEpoch,
+      };
+
+      // If status is completed, add review fields
+      if (status == 'completed') {
+        final reviewDeadline = DateTime.now().add(Duration(days: 14));
+        updateData['canReviewOwner'] = true;
+        updateData['canReviewRenter'] = true;
+        updateData['reviewDeadline'] = reviewDeadline.millisecondsSinceEpoch;
+      }
+
+      await _firestore.collection('reservations').doc(reservationId).update(updateData);
+    } catch (e) {
+      print('Error updating reservation: $e');
       rethrow;
     }
   }

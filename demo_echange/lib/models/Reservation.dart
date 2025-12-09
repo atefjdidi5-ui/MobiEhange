@@ -21,6 +21,13 @@ class Reservation {
   final String paymentStatus; // 'pending', 'paid', 'failed'
   final String? paymentReceiptUrl;
 
+  // Review-related fields
+  final bool canReviewOwner;       // Renter can review owner
+  final bool canReviewRenter;      // Owner can review renter
+  final bool ownerReviewed;        // Owner has reviewed renter
+  final bool renterReviewed;       // Renter has reviewed owner
+  final DateTime? reviewDeadline;
+
   Reservation({
     required this.id,
     required this.itemId,
@@ -40,6 +47,11 @@ class Reservation {
     this.flutterwaveCheckoutId,
     this.paymentStatus = 'pending',
     this.paymentReceiptUrl,
+    this.canReviewOwner = false,
+    this.canReviewRenter = false,
+    this.ownerReviewed = false,
+    this.renterReviewed = false,
+    this.reviewDeadline,
   });
 
   // Mettez à jour copyWith()
@@ -82,6 +94,12 @@ class Reservation {
       flutterwaveCheckoutId: flutterwaveCheckoutId ?? this.flutterwaveCheckoutId,
       paymentStatus: paymentStatus ?? this.paymentStatus,
       paymentReceiptUrl: paymentReceiptUrl ?? this.paymentReceiptUrl,
+
+      canReviewOwner: canReviewOwner ?? this.canReviewOwner,
+      canReviewRenter: canReviewRenter ?? this.canReviewRenter,
+      ownerReviewed: ownerReviewed ?? this.ownerReviewed,
+      renterReviewed: renterReviewed ?? this.renterReviewed,
+      reviewDeadline: reviewDeadline ?? this.reviewDeadline,
     );
   }
 
@@ -132,6 +150,16 @@ class Reservation {
       flutterwaveCheckoutId: map['flutterwaveCheckoutId'],
       paymentStatus: map['paymentStatus'] ?? 'pending',
       paymentReceiptUrl: map['paymentReceiptUrl'],
+
+
+
+      canReviewOwner: map['canReviewOwner'] ?? false,
+      canReviewRenter: map['canReviewRenter'] ?? false,
+      ownerReviewed: map['ownerReviewed'] ?? false,
+      renterReviewed: map['renterReviewed'] ?? false,
+      reviewDeadline: map['reviewDeadline'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['reviewDeadline'])
+          : null,
     );
   }
 
@@ -139,4 +167,23 @@ class Reservation {
   bool get canPay => status == 'accepted' && paymentStatus == 'pending';
   bool get isPaid => paymentStatus == 'paid';
   int get numberOfDays => endDate.difference(startDate).inDays;
+
+  bool get canReviewAsRenter =>
+      status == 'accepted' &&
+          paymentStatus == 'paid' &&
+          canReviewOwner &&
+          !renterReviewed &&
+          reviewDeadline != null &&
+          DateTime.now().isBefore(reviewDeadline!);
+
+  bool get canReviewAsOwner =>
+      status == 'accepted' &&
+          paymentStatus == 'paid' &&
+          canReviewRenter &&
+          !ownerReviewed &&
+          reviewDeadline != null &&
+          DateTime.now().isBefore(reviewDeadline!);
+
+  bool get isReservationComplete => status == 'accepted' && paymentStatus == 'paid';
+
 }

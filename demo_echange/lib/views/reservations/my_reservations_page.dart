@@ -5,6 +5,7 @@ import '../../models/Reservation.dart';
 import '../../providers/auth-provider.dart';
 import '../../providers/reservation_provider.dart';
 import '../payment/FlutterwavePaymentPage.dart';
+import '../review/leave_review_page.dart';
 
 class MyReservationsPage extends StatefulWidget {
   @override
@@ -187,6 +188,7 @@ class _MyReservationsPageState extends State<MyReservationsPage> {
                 ),
               ),
 
+
             SizedBox(height: 8),
 
             Text('Prix total: ${reservation.totalPrice.toStringAsFixed(2)} TND'),
@@ -271,7 +273,96 @@ class _MyReservationsPageState extends State<MyReservationsPage> {
                   ),
               ],
             ),
+
+            // review setion
+            if (reservation.canReviewAsRenter || reservation.canReviewAsOwner)
+              Container(
+                margin: EdgeInsets.only(top: 12),
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.reviews, size: 16, color: Colors.blue),
+                        SizedBox(width: 8),
+                        Text(
+                          'Leave a Review',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Share your experience to help others',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                    SizedBox(height: 8),
+
+                    // Review buttons
+                    if (reservation.canReviewAsRenter)
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _reviewOwner(reservation),
+                          icon: Icon(Icons.person, size: 16),
+                          label: Text('Review Owner'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.blue,
+                            side: BorderSide(color: Colors.blue),
+                          ),
+                        ),
+                      ),
+
+                    if (reservation.canReviewAsOwner)
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _reviewRenter(reservation),
+                          icon: Icon(Icons.people, size: 16),
+                          label: Text('Review Renter'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.green,
+                            side: BorderSide(color: Colors.green),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
           ],
+        ),
+      ),
+    );
+  }
+
+
+  void _reviewOwner(Reservation reservation) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LeaveReviewPage(
+          reservation: reservation,
+          isReviewingOwner: true,
+        ),
+      ),
+    );
+  }
+
+  void _reviewRenter(Reservation reservation) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LeaveReviewPage(
+          reservation: reservation,
+          isReviewingOwner: false,
         ),
       ),
     );
