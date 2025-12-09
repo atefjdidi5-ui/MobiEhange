@@ -86,7 +86,7 @@ class _FlutterwavePaymentPageState extends State<FlutterwavePaymentPage> {
     // CORRECTION: Retirez le paramètre 'context' du constructeur
     final Flutterwave flutterwave = Flutterwave(
       publicKey: FlutterwaveService.publicKey,
-      currency: "TND",
+      currency: "USD",
       redirectUrl: "https://devmob-echange.com/payment-success",
       txRef: txRef,
       amount: widget.reservation.totalPrice.toStringAsFixed(2),

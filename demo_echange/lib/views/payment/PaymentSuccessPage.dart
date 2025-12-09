@@ -1,6 +1,7 @@
 // views/payment/PaymentSuccessPage.dart
 import 'package:flutter/material.dart';
 import '../../models/Reservation.dart';
+import '../home/home_page.dart';
 
 class PaymentSuccessPage extends StatelessWidget {
   final Reservation reservation;
@@ -86,10 +87,9 @@ class PaymentSuccessPage extends StatelessWidget {
               // Bouton pour retourner à l'accueil
               ElevatedButton(
                 onPressed: () {
-                  Navigator.pushNamedAndRemoveUntil(
+                  Navigator.pushReplacement(
                     context,
-                    '/home',
-                        (route) => false,
+                    MaterialPageRoute(builder: (context) => HomePage()),
                   );
                 },
                 child: Text('Retour à l\'accueil'),
