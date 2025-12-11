@@ -58,18 +58,20 @@ class _MyReservationsPageState extends State<MyReservationsPage> {
         ),
       );
     }
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final currentUserId = authProvider.appUser?.id;
 
     return ListView.builder(
       padding: EdgeInsets.all(16),
       itemCount: reservationProvider.reservations.length,
       itemBuilder: (context, index) {
         final reservation = reservationProvider.reservations[index];
-        return _buildReservationCard(reservation);
+        return _buildReservationCard(reservation, currentUserId);
       },
     );
   }
 
-  Widget _buildReservationCard(Reservation reservation) {
+  Widget _buildReservationCard(Reservation reservation, String? currentUserId) {
     Color statusColor;
     IconData statusIcon;
     String statusText;
@@ -274,66 +276,94 @@ class _MyReservationsPageState extends State<MyReservationsPage> {
               ],
             ),
 
-            // review setion
-            if (reservation.canReviewAsRenter || reservation.canReviewAsOwner)
+            // REVIEW SECTION - SIMPLIFIED TEST VERSION
+            // First, let's test if the section appears at all
+            if (reservation.isPaid)
               Container(
                 margin: EdgeInsets.only(top: 12),
                 padding: EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.blue[50],
+                  color: Colors.green[50], // Changed to green to make it visible
                   borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.reviews, size: 16, color: Colors.blue),
+                        Icon(Icons.star, size: 16, color: Colors.green),
                         SizedBox(width: 8),
                         Text(
-                          'Leave a Review',
+                          'TEST: REVIEW SECTION',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Colors.blue[700],
+                            color: Colors.green[700],
                           ),
                         ),
                       ],
                     ),
                     SizedBox(height: 8),
+
+                    // Debug info
                     Text(
-                      'Share your experience to help others',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      'Reservation isPaid: ${reservation.isPaid}',
+                      style: TextStyle(fontSize: 12),
                     ),
-                    SizedBox(height: 8),
+                    Text(
+                      'PaymentStatus: ${reservation.paymentStatus}',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    Text(
+                      'currentUserId: $currentUserId',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    Text(
+                      'renterId: ${reservation.renterId}',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    Text(
+                      'ownerId: ${reservation.ownerId}',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    Text(
+                      'isRenter: ${currentUserId == reservation.renterId}',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    Text(
+                      'isOwner: ${currentUserId == reservation.ownerId}',
+                      style: TextStyle(fontSize: 12),
+                    ),
 
-                    // Review buttons
-                    if (reservation.canReviewAsRenter)
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () => _reviewOwner(reservation),
-                          icon: Icon(Icons.person, size: 16),
-                          label: Text('Review Owner'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.blue,
-                            side: BorderSide(color: Colors.blue),
-                          ),
-                        ),
-                      ),
+                    SizedBox(height: 12),
 
-                    if (reservation.canReviewAsOwner)
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () => _reviewRenter(reservation),
-                          icon: Icon(Icons.people, size: 16),
-                          label: Text('Review Renter'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.green,
-                            side: BorderSide(color: Colors.green),
-                          ),
+                    // Test button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          print('Test review button clicked!');
+                          print('Reservation ID: ${reservation.id}');
+                          print('User role: ${currentUserId == reservation.renterId ? 'Renter' : 'Owner'}');
+
+                          // Test navigation
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => LeaveReviewPage(
+                                reservation: reservation,
+                                isReviewingOwner: true, // Default to reviewing owner
+                              ),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
                         ),
+                        child: Text('TEST: Leave Review'),
                       ),
+                    ),
                   ],
                 ),
               ),
@@ -342,7 +372,6 @@ class _MyReservationsPageState extends State<MyReservationsPage> {
       ),
     );
   }
-
 
   void _reviewOwner(Reservation reservation) {
     Navigator.push(
