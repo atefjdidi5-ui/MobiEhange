@@ -2,6 +2,7 @@ import 'package:demo_echange/providers/auth-provider.dart';
 import 'package:demo_echange/providers/flutterwave_provider.dart';
 import 'package:demo_echange/providers/item_provider.dart';
 import 'package:demo_echange/providers/reservation_provider.dart';
+import 'package:demo_echange/providers/review_provider.dart';
 import 'package:demo_echange/services/firebase-service.dart';
 import 'package:demo_echange/views/home/home_page.dart';
 import 'package:demo_echange/views/login.dart';
@@ -24,6 +25,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ItemProvider()),
         ChangeNotifierProvider(create: (_) => ReservationProvider()),
         ChangeNotifierProvider(create: (_) => FlutterwaveProvider()),
+        ChangeNotifierProvider(create: (_) => ReviewProvider()),
+
 
       ],
       child: MaterialApp(

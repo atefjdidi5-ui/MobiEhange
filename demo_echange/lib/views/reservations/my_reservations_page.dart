@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../models/Reservation.dart';
 import '../../providers/auth-provider.dart';
 import '../../providers/reservation_provider.dart';
+import '../../providers/review_provider.dart';
 import '../payment/FlutterwavePaymentPage.dart';
 import '../review/leave_review_page.dart';
 
@@ -377,9 +378,12 @@ class _MyReservationsPageState extends State<MyReservationsPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => LeaveReviewPage(
-          reservation: reservation,
-          isReviewingOwner: true,
+        builder: (context) => ChangeNotifierProvider(
+          create: (context) => ReviewProvider(),
+          child: LeaveReviewPage(
+            reservation: reservation,
+            isReviewingOwner: true,
+          ),
         ),
       ),
     );
@@ -389,9 +393,12 @@ class _MyReservationsPageState extends State<MyReservationsPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => LeaveReviewPage(
-          reservation: reservation,
-          isReviewingOwner: false,
+        builder: (context) => ChangeNotifierProvider(
+          create: (context) => ReviewProvider(),
+          child: LeaveReviewPage(
+            reservation: reservation,
+            isReviewingOwner: false,
+          ),
         ),
       ),
     );

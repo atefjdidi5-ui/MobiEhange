@@ -4,12 +4,14 @@ import 'package:provider/provider.dart';
 import '../../providers/auth-provider.dart';
 import '../../providers/item_provider.dart';
 import '../../providers/reservation_provider.dart';
+import '../../providers/review_provider.dart';
 import '../../widgets/item_card.dart';
 import '../item/add_item_page.dart';
 import '../item/item_detail_page.dart';
 import '../reservations/cart_page.dart';
 import '../reservations/my_reservations_page.dart';
 import '../reservations/owner_reservations_page.dart';
+import '../review/user_reviews_page.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -355,6 +357,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+
   Widget _buildProfileTab(AuthProvider authProvider, ItemProvider itemProvider) {
     final user = authProvider.appUser;
 
@@ -389,24 +392,239 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       Icon(Icons.star, color: Colors.amber, size: 16),
                       SizedBox(width: 4),
-                      //Text('${user.rating.toStringAsFixed(1)} (${user.totalReviews} avis)'),
+                      Text('${user.totalReviews.toStringAsFixed(1) ?? "0.0"} (${user.totalReviews ?? 0} avis)'),
                     ],
+                  ),
+
+                  // Reviews Button
+                  SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ChangeNotifierProvider(
+                              create: (_) => ReviewProvider(),
+                              child: UserReviewsPage(),
+                            ),
+                          ),
+                        );
+                      },
+                      icon: Icon(Icons.reviews),
+                      label: Text('Voir mes avis'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue[700],
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
           ),
+
           SizedBox(height: 20),
+
+          // Reviews Stats Section
+          Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Mes Avis',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 12),
+
+                  // We'll use Consumer to get live review data
+                  Consumer<ReviewProvider>(
+                    builder: (context, reviewProvider, child) {
+                      final totalReceived = reviewProvider.userReviews.length;
+                      final totalGiven = reviewProvider.userGivenReviews.length;
+                      //final averageRating = user.rating ?? 0.0;
+
+                      return Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              // Received Reviews
+                              Column(
+                                children: [
+                                  Container(
+                                    padding: EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.withOpacity(0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(Icons.download, size: 20, color: Colors.blue),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    totalReceived.toString(),
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Reçus',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              // Given Reviews
+                              Column(
+                                children: [
+                                  Container(
+                                    padding: EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.withOpacity(0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(Icons.upload, size: 20, color: Colors.green),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    totalGiven.toString(),
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Donnés',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              // Average Rating
+                              Column(
+                                children: [
+                                  Container(
+                                    padding: EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.withOpacity(0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(Icons.star, size: 20, color: Colors.amber),
+                                  ),
+                                  SizedBox(height: 4),
+
+                                  Text(
+                                    'Note',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+
+                          SizedBox(height: 12),
+
+                          // Quick Review Stats
+                          if (reviewProvider.userStats.isNotEmpty)
+                            Column(
+                              children: [
+                                Divider(),
+                                SizedBox(height: 8),
+                                Text(
+                                  'Distribution des notes:',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                                SizedBox(height: 8),
+                                _buildRatingDistribution(reviewProvider.userStats['ratingDistribution']),
+                              ],
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          SizedBox(height: 20),
+
           Text(
             'Mes objets',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 10),
           _buildMyItemsList(itemProvider),
+
           SizedBox(height: 20),
+
           _buildReservationQuickStats(authProvider),
         ],
       ),
+    );
+  }
+
+
+
+  Widget _buildRatingDistribution(List<dynamic> distribution) {
+    final total = distribution.fold(0, (sum, count) => sum + (count as int));
+
+    return Column(
+      children: List.generate(5, (index) {
+        final rating = 5 - index; // Show 5 stars to 1 star
+        final count = distribution[rating - 1] as int;
+        final percentage = total > 0 ? (count / total * 100) : 0;
+
+        return Padding(
+          padding: EdgeInsets.only(bottom: 6),
+          child: Row(
+            children: [
+              Text(
+                '$rating ⭐',
+                style: TextStyle(fontSize: 12),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: LinearProgressIndicator(
+                    value: total > 0 ? count / total : 0,
+                    backgroundColor: Colors.grey[200],
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.amber),
+                    minHeight: 8,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+              Text(
+                '${percentage.toStringAsFixed(0)}%',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        );
+      }),
     );
   }
 
