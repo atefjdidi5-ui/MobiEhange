@@ -1,8 +1,8 @@
-import 'package:demo_echange/services/auth_fixed.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/Item.dart';
 import '../../providers/item_provider.dart';
+import '../../services/auth_fixed.dart';
 
 class AddItemPage extends StatefulWidget {
   @override
@@ -15,8 +15,10 @@ class _AddItemPageState extends State<AddItemPage> {
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
+  final TextEditingController _imageUrlController = TextEditingController();
 
   String _selectedCategory = 'Électronique';
+  final List<String> _imageUrls = [];
   final List<String> _categories = [
     'Électronique',
     'Maison',
@@ -86,6 +88,7 @@ class _AddItemPageState extends State<AddItemPage> {
                 decoration: InputDecoration(
                   labelText: 'Prix journalier (TND)*',
                   border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.attach_money),
                 ),
                 keyboardType: TextInputType.numberWithOptions(decimal: true),
                 validator: (value) {
@@ -144,6 +147,104 @@ class _AddItemPageState extends State<AddItemPage> {
                   return null;
                 },
               ),
+              SizedBox(height: 16),
+
+              // Image URLs Section
+              Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Images de l\'objet',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      TextFormField(
+                        controller: _imageUrlController,
+                        decoration: InputDecoration(
+                          labelText: 'URL de l\'image',
+                          hintText: 'https://example.com/image.jpg',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.link),
+                          suffixIcon: IconButton(
+                            icon: Icon(Icons.add),
+                            onPressed: _addImageUrl,
+                          ),
+                        ),
+                        keyboardType: TextInputType.url,
+                      ),
+                      SizedBox(height: 8),
+                      if (_imageUrls.isNotEmpty) ...[
+                        SizedBox(height: 8),
+                        Text(
+                          'Images ajoutées (${_imageUrls.length})',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _imageUrls.map((url) {
+                            return Chip(
+                              label: Text(
+                                'Image ${_imageUrls.indexOf(url) + 1}',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                              deleteIcon: Icon(Icons.close, size: 16),
+                              onDeleted: () => _removeImageUrl(url),
+                            );
+                          }).toList(),
+                        ),
+                        SizedBox(height: 8),
+                        // Preview of images
+                        Container(
+                          height: 100,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _imageUrls.length,
+                            itemBuilder: (context, index) {
+                              return Padding(
+                                padding: EdgeInsets.only(right: 8),
+                                child: Container(
+                                  width: 100,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.grey[300]!),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      _imageUrls[index],
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return Container(
+                                          color: Colors.grey[200],
+                                          child: Icon(
+                                            Icons.broken_image,
+                                            color: Colors.grey[400],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
               SizedBox(height: 30),
 
               // Submit Button
@@ -173,8 +274,41 @@ class _AddItemPageState extends State<AddItemPage> {
     );
   }
 
+  void _addImageUrl() {
+    final url = _imageUrlController.text.trim();
+    if (url.isNotEmpty && Uri.tryParse(url)?.hasAbsolutePath == true) {
+      setState(() {
+        _imageUrls.add(url);
+        _imageUrlController.clear();
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Veuillez entrer une URL valide'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _removeImageUrl(String url) {
+    setState(() {
+      _imageUrls.remove(url);
+    });
+  }
+
   Future<void> _submitForm(String ownerId) async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (_imageUrls.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Veuillez ajouter au moins une image'),
+          backgroundColor: Colors.orange,
+        ),
+      );
       return;
     }
 
@@ -183,7 +317,7 @@ class _AddItemPageState extends State<AddItemPage> {
       ownerId: ownerId,
       title: _titleController.text.trim(),
       description: _descriptionController.text.trim(),
-      imageUrls: [], // Empty list for now since we're not using images
+      imageUrls: _imageUrls,
       dailyPrice: double.parse(_priceController.text),
       category: _selectedCategory,
       location: _locationController.text.trim(),
@@ -215,6 +349,7 @@ class _AddItemPageState extends State<AddItemPage> {
     _descriptionController.dispose();
     _priceController.dispose();
     _locationController.dispose();
+    _imageUrlController.dispose();
     super.dispose();
   }
 }

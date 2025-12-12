@@ -47,18 +47,55 @@ class ItemDetailPage extends StatelessWidget {
           Container(
             height: 250,
             width: double.infinity,
-            color: Colors.grey[300],
             child: item.imageUrls.isNotEmpty
-                ? Image.network(
-              item.imageUrls.first,
-              fit: BoxFit.cover,
+                ? PageView.builder(
+              itemCount: item.imageUrls.length,
+              itemBuilder: (context, index) {
+                return Image.network(
+                  item.imageUrls[index],
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: Colors.grey[200],
+                      child: Icon(
+                        Icons.broken_image,
+                        size: 50,
+                        color: Colors.grey[400],
+                      ),
+                    );
+                  },
+                );
+              },
             )
-                : Icon(
-              Icons.photo,
-              size: 80,
-              color: Colors.grey[600],
+                : Container(
+              color: Colors.grey[300],
+              child: Icon(
+                Icons.photo,
+                size: 80,
+                color: Colors.grey[600],
+              ),
             ),
           ),
+
+// Add image indicators if there are multiple images
+          if (item.imageUrls.length > 1)
+            Container(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(item.imageUrls.length, (index) {
+                  return Container(
+                    margin: EdgeInsets.symmetric(horizontal: 4),
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(0.7),
+                    ),
+                  );
+                }),
+              ),
+            ),
 
           // Scrollable content area
           Expanded(

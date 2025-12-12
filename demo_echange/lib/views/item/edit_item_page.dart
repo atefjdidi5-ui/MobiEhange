@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import '../../models/Item.dart';
 import '../../providers/item_provider.dart';
 
@@ -19,9 +18,11 @@ class _EditItemPageState extends State<EditItemPage> {
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
+  final TextEditingController _imageUrlController = TextEditingController();
 
   String _selectedCategory = 'Électronique';
   bool _isAvailable = true;
+  final List<String> _imageUrls = [];
 
   final List<String> _categories = [
     'Électronique',
@@ -43,6 +44,7 @@ class _EditItemPageState extends State<EditItemPage> {
     _locationController.text = widget.item.location;
     _selectedCategory = widget.item.category;
     _isAvailable = widget.item.isAvailable;
+    _imageUrls.addAll(widget.item.imageUrls);
   }
 
   @override
@@ -53,7 +55,6 @@ class _EditItemPageState extends State<EditItemPage> {
       appBar: AppBar(
         title: Text('Modifier l\'objet'),
         actions: [
-          // Delete button in app bar
           IconButton(
             icon: Icon(Icons.delete, color: Colors.red),
             onPressed: () => _showDeleteConfirmation(context),
@@ -108,9 +109,9 @@ class _EditItemPageState extends State<EditItemPage> {
               TextFormField(
                 controller: _priceController,
                 decoration: InputDecoration(
-                  labelText: 'Prix journalier (€)*',
+                  labelText: 'Prix journalier (TND)*',
                   border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.euro),
+                  prefixIcon: Icon(Icons.attach_money),
                 ),
                 keyboardType: TextInputType.numberWithOptions(decimal: true),
                 validator: (value) {
@@ -168,6 +169,104 @@ class _EditItemPageState extends State<EditItemPage> {
                   }
                   return null;
                 },
+              ),
+              SizedBox(height: 16),
+
+              // Image URLs Section
+              Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Images de l\'objet',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      TextFormField(
+                        controller: _imageUrlController,
+                        decoration: InputDecoration(
+                          labelText: 'URL de l\'image',
+                          hintText: 'https://example.com/image.jpg',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.link),
+                          suffixIcon: IconButton(
+                            icon: Icon(Icons.add),
+                            onPressed: _addImageUrl,
+                          ),
+                        ),
+                        keyboardType: TextInputType.url,
+                      ),
+                      SizedBox(height: 8),
+                      if (_imageUrls.isNotEmpty) ...[
+                        SizedBox(height: 8),
+                        Text(
+                          'Images (${_imageUrls.length})',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _imageUrls.map((url) {
+                            return Chip(
+                              label: Text(
+                                'Image ${_imageUrls.indexOf(url) + 1}',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                              deleteIcon: Icon(Icons.close, size: 16),
+                              onDeleted: () => _removeImageUrl(url),
+                            );
+                          }).toList(),
+                        ),
+                        SizedBox(height: 8),
+                        // Preview of images
+                        Container(
+                          height: 100,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _imageUrls.length,
+                            itemBuilder: (context, index) {
+                              return Padding(
+                                padding: EdgeInsets.only(right: 8),
+                                child: Container(
+                                  width: 100,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.grey[300]!),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      _imageUrls[index],
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return Container(
+                                          color: Colors.grey[200],
+                                          child: Icon(
+                                            Icons.broken_image,
+                                            color: Colors.grey[400],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
               SizedBox(height: 16),
 
@@ -229,14 +328,48 @@ class _EditItemPageState extends State<EditItemPage> {
     );
   }
 
+  void _addImageUrl() {
+    final url = _imageUrlController.text.trim();
+    if (url.isNotEmpty && Uri.tryParse(url)?.hasAbsolutePath == true) {
+      setState(() {
+        _imageUrls.add(url);
+        _imageUrlController.clear();
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Veuillez entrer une URL valide'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _removeImageUrl(String url) {
+    setState(() {
+      _imageUrls.remove(url);
+    });
+  }
+
   Future<void> _updateItem() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (_imageUrls.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Veuillez garder au moins une image'),
+          backgroundColor: Colors.orange,
+        ),
+      );
       return;
     }
 
     final updatedItem = widget.item.copyWith(
       title: _titleController.text.trim(),
       description: _descriptionController.text.trim(),
+      imageUrls: _imageUrls,
       dailyPrice: double.parse(_priceController.text),
       category: _selectedCategory,
       location: _locationController.text.trim(),
@@ -272,7 +405,7 @@ class _EditItemPageState extends State<EditItemPage> {
             ),
             TextButton(
               onPressed: () async {
-                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop();
                 await _deleteItem();
               },
               style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -292,9 +425,8 @@ class _EditItemPageState extends State<EditItemPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Objet supprimé avec succès!')),
       );
-      // Navigate back to previous screen
       Navigator.of(context).pop();
-      Navigator.of(context).pop(); // Pop twice to go back to items list
+      Navigator.of(context).pop();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur lors de la suppression')),
@@ -308,6 +440,7 @@ class _EditItemPageState extends State<EditItemPage> {
     _descriptionController.dispose();
     _priceController.dispose();
     _locationController.dispose();
+    _imageUrlController.dispose();
     super.dispose();
   }
 }

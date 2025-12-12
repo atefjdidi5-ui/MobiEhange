@@ -331,7 +331,8 @@ class _HomePageState extends State<HomePage> {
 
     return Padding(
       padding: const EdgeInsets.all(8.0),
-      child: GridView.builder(
+      child:
+      GridView.builder(
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           crossAxisSpacing: 8,
@@ -341,19 +342,98 @@ class _HomePageState extends State<HomePage> {
         itemCount: itemProvider.items.length,
         itemBuilder: (context, index) {
           final item = itemProvider.items[index];
-          return ItemCard(
-            item: item,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ItemDetailPage(item: item),
-                ),
-              );
-            },
+          return Card(
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ItemDetailPage(item: item),
+                  ),
+                );
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Image Container
+                  Container(
+                    height: 120,
+                    width: double.infinity,
+                    child: item.imageUrls.isNotEmpty
+                        ? Image.network(
+                      item.imageUrls.first,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey[200],
+                          child: Icon(
+                            Icons.broken_image,
+                            color: Colors.grey[400],
+                          ),
+                        );
+                      },
+                    )
+                        : Container(
+                      color: Colors.grey[200],
+                      child: Icon(
+                        Icons.photo,
+                        size: 40,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                  ),
+
+                  // Item Details
+                  Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.title,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          '${item.dailyPrice}TND/jour',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.location_on, size: 12, color: Colors.grey),
+                            SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                item.location,
+                                style: TextStyle(fontSize: 11, color: Colors.grey),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         },
-      ),
+      )
     );
   }
 
