@@ -19,6 +19,7 @@ class _LoginPageState extends State<LoginPage> {
   void _login() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (!mounted) return; // Ajouter cette vérification
     setState(() => _isLoading = true);
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -27,14 +28,17 @@ class _LoginPageState extends State<LoginPage> {
       _passwordController.text.trim(),
     );
 
+    if (!mounted) return; // Vérifier avant chaque setState
     setState(() => _isLoading = false);
 
     if (success && authProvider.appUser != null) {
+      if (!mounted) return; // Vérifier avant la navigation
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => HomePage()),
       );
     } else {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Échec de la connexion. Vérifiez vos identifiants.'),
