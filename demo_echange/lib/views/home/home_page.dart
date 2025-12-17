@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import '../../providers/auth-provider.dart';
 import '../../providers/item_provider.dart';
 import '../../providers/reservation_provider.dart';
 import '../../providers/review_provider.dart';
-import '../../widgets/item_card.dart';
 import '../item/add_item_page.dart';
 import '../item/item_detail_page.dart';
 import '../reservations/cart_page.dart';
